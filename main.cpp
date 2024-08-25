@@ -1,10 +1,15 @@
 #include <windows.h>
-#include <string>
-#include <vector>
-#include <sstream>
+#include <iostream>
 #include <fstream>
+#include <cctype>
+#include <vector>
+#include <string>
+#include <cstring>
+#include <algorithm>
+#include <chrono>
 
 using namespace std;
+using namespace chrono;
 
 struct Node 
 {
@@ -34,12 +39,12 @@ Node* child_locator(Node* current, char c)
     return NULL;
 }
 
-void insert(Node* root, string s) 
+void insert(Node* root, string s) // Time Complexity: O(L), L = Length of the string
 {
     Node* current = root;
     if (s.length() == 0) 
     {
-        current->end = true;
+        current->end = true; // an empty word
         return;
     }
     for (int i = 0; i < s.length(); i++) 
@@ -60,7 +65,7 @@ void insert(Node* root, string s)
     }
 }
 
-bool word_search(Node* root, string s) 
+bool word_search(Node* root, string s) // Time Complexity: O(L), L = Length of the string
 {
     Node* current = root;
     while (current != NULL) 
@@ -80,9 +85,9 @@ bool word_search(Node* root, string s)
     return false;
 }
 
-void TRIE_Traversal(Node* current, char* s, vector<string>& res, bool& loop) 
-{
-    char k[100] = { 0 };
+void TRIE_Traversal(Node* current, char* s, vector<string>& res, bool& loop) // Time Complexity: O(k*h),
+{                                                                            //  k = number of suggestions
+    char k[100] = { 0 };                                                     // h = Height of the tree
     char aa[2] = { 0 };
     if (loop) 
     {
@@ -128,43 +133,33 @@ void auto_start(Node* root, string s, vector<string>& res)
     return;
 }
 
-void Dictionary_loading(Node* root) 
-{
-    HRSRC hRes = FindResource(NULL, MAKEINTRESOURCE(IDR_DICTIONARY), RT_RCDATA);
-    if (!hRes)
+void Dictionary_loading(Node* root, string fn) // Time Complexity: O(n*m)
+{                                              // n = Number of words in the dictionary
+    ifstream dictionary;                       // m = Average lenght of all the words in the dictionary
+    dictionary.open(fn.c_str());
+    if (!dictionary.is_open()) 
     {
-        MessageBox(NULL, "Could not find dictionary resource", "Error", MB_OK | MB_ICONERROR);
+        MessageBox(NULL, "Could not open dictionary file", "Error", MB_OK | MB_ICONERROR);
         return;
     }
-    
-    HGLOBAL hLoadedRes = LoadResource(NULL, hRes);
-    if (!hLoadedRes)
+    while (!dictionary.eof()) 
     {
-        MessageBox(NULL, "Could not load dictionary resource", "Error", MB_OK | MB_ICONERROR);
-        return;
+        char s[100];
+        dictionary >> s;
+        insert(root, s);
     }
-    
-    char* pResData = (char*)LockResource(hLoadedRes);
-    DWORD resSize = SizeofResource(NULL, hRes);
-    
-    stringstream dictionary(string(pResData, resSize));
-    string word;
-    while (dictionary >> word) 
-    {
-        insert(root, word);
-    }
+    dictionary.close();
+    return;
 }
 
 HWND hInput, hList, hSpellInput;
 Node* root;
 
-LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
-{
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     static vector<string> listOfWords;
     static bool loop = true;
     
-    switch (uMsg) 
-    {
+    switch (uMsg) {
         case WM_CREATE:
             CreateWindow("BUTTON", "Auto Complete", WS_VISIBLE | WS_CHILD, 10, 10, 150, 30, hwnd, (HMENU)1, NULL, NULL);
             CreateWindow("BUTTON", "Spell Check", WS_VISIBLE | WS_CHILD, 10, 50, 150, 30, hwnd, (HMENU)2, NULL, NULL);
@@ -175,8 +170,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             break;
         
         case WM_COMMAND:
-            switch (LOWORD(wParam)) 
-            {
+            switch (LOWORD(wParam)) {
                 case 1: // Auto Complete
                 {
                     char buffer[100];
@@ -185,8 +179,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                     listOfWords.clear();
                     auto_start(root, prefix, listOfWords);
                     SendMessage(hList, LB_RESETCONTENT, 0, 0);
-                    for (const auto& word : listOfWords) 
-                    {
+                    for (const auto& word : listOfWords) {
                         SendMessage(hList, LB_ADDSTRING, 0, (LPARAM)word.c_str());
                     }
                     break;
@@ -218,8 +211,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) 
-{
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     const char CLASS_NAME[] = "Sample Window Class";
 
     WNDCLASS wc = {};
@@ -238,20 +230,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         NULL, NULL, hInstance, NULL
     );
 
-    if (hwnd == NULL) 
-    {
+    if (hwnd == NULL) {
         return 0;
     }
 
     root = create(' ');
-    Dictionary_loading(root);
+    Dictionary_loading(root, "dictionary.txt");
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
 
     MSG msg;
-    while (GetMessage(&msg, NULL, 0, 0)) 
-    {
+    while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
